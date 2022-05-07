@@ -22,11 +22,9 @@ from selenium.webdriver.support import expected_conditions as EC
 from rclone_util import RcloneUtil
 
 # page urls
-
-
-site_url = "https://csgo.gamersclub.gg/"
-bannered_users_url = "https://csgo.gamersclub.gg/banidos"
-login_page_url = """
+SITE_URL = "https://csgo.gamersclub.gg/"
+BANNED_USERS_URL = "https://csgo.gamersclub.gg/banidos"
+LOGIN_PAGE_URL = """
 https://steamcommunity.com/openid/login?
 openid.ns=http://specs.openid.net/auth/2.0
 &openid.mode=checkid_setup
@@ -37,21 +35,28 @@ redirect=/&openid.realm=https://csgo.gamersclub.gg/
 
 
 # login page credentials
-username = 'geminiheg'
-password = 'Gamer@2022'
-action = "https://steamcommunity.com/openid/login"
+USERNAME = 'username'
+PASSWORD = 'password'
+
+# copy files
+RCLONE_CONF_LOCATION = 'PATH_TO_RCLONE_CONFIG'
+RCLONE_REMOTE_FOLDER = 'RCLONE_REMOTE_FOLDER'
+
+# initialize rclone util
+rclone_util = RcloneUtil(RCLONE_CONF_LOCATION)
 
 
 def initialize_selenium(use_wire=False):
-    # User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.53 Safari/537.36
+    """
+    set selenium instance
+    :param use_wire: True if using seleniumwire
+    :return: driver instance
+    """
     options = webdriver.ChromeOptions()
-    # options.add_argument('--ignore-certificate-errors')
-    # options.add_argument('--incognito')
     options.add_argument("--window-size=1100,1000")
     options.add_experimental_option("excludeSwitches", ["enable-automation"])
     options.add_experimental_option('useAutomationExtension', False)
-    # options.add_argument('--headless')
-    # driver = webdriver.Chrome("/Users/odenypeter/Desktop/pi", options=options)
+    options.add_argument('--headless')
     if use_wire:
         driver = wire_driver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
     else:
@@ -61,6 +66,11 @@ def initialize_selenium(use_wire=False):
 
 
 def download_file(link):
+    """
+    download demo file
+    :param link:
+    :return:
+    """
     url_parts = link.split('/')
     new_link = f'{url_parts[-3]}/{url_parts[-2]}/{url_parts[-1]}'
     updated_login_page_url = f"""
@@ -73,14 +83,13 @@ redirect=/{new_link}&openid.realm=https://csgo.gamersclub.gg/
 &openid.claimed_id=http://specs.openid.net/auth/2.0/identifier_select"""
 
     file_data = None
-
     # launch login
     driver = initialize_selenium(True)
     driver.get(updated_login_page_url)
     time.sleep(5)
 
-    driver.find_element(By.ID, "steamAccountName").send_keys(username)
-    driver.find_element(By.ID, "steamPassword").send_keys(password)
+    driver.find_element(By.ID, "steamAccountName").send_keys(USERNAME)
+    driver.find_element(By.ID, "steamPassword").send_keys(PASSWORD)
     btn = driver.find_element(By.ID, "imageLogin")
     virtual_click(driver, btn)
 
@@ -116,7 +125,6 @@ redirect=/{new_link}&openid.realm=https://csgo.gamersclub.gg/
         )
 
         if download_btn:
-            # driver.execute_script("arguments[0].scrollIntoView(true);", download_btn)
             download_btn.click()
             time.sleep(7)
             for request in driver.requests:
@@ -134,16 +142,23 @@ redirect=/{new_link}&openid.realm=https://csgo.gamersclub.gg/
     return file_data
 
 
-def virtual_click(driver, click_object, UseRandom=True):
+def virtual_click(driver, click_object, use_random=True):
+    """
+    emulate user click of login btn
+    :param driver:
+    :param click_object:
+    :param use_random:
+    :return:
+    """
     try:
         size = click_object.size
     except StaleElementReferenceException:
         return False
 
-    sizeList = list(size.values())
-    height = int(sizeList[0]) - 1
-    width = int(sizeList[1]) - 1
-    if UseRandom == True:
+    size_list = list(size.values())
+    height = int(size_list[0]) - 1
+    width = int(size_list[1]) - 1
+    if use_random:
         try:
             height_rand = random.randint(1, height)
         except ValueError:
@@ -152,7 +167,7 @@ def virtual_click(driver, click_object, UseRandom=True):
             width_rand = random.randint(1, width)
         except ValueError:
             width_rand = 1
-    if UseRandom == False:
+    if not use_random:
         height_rand = height
         width_rand = width
     action = webdriver.common.action_chains.ActionChains(driver)
@@ -173,6 +188,12 @@ def virtual_click(driver, click_object, UseRandom=True):
 
 
 def get_ban_period_in_years(date_from, date_to) -> int:
+    """
+    get user banned period in years
+    :param date_from:
+    :param date_to:
+    :return:
+    """
     if date_from and date_to:
         date_from_str = date_from.split(' ')[0].split('/')
         date_to_str = date_to.split(' ')[0].split('/')
@@ -190,7 +211,30 @@ def get_ban_period_in_years(date_from, date_to) -> int:
         return difference.years
 
 
+def get_pages(driver):
+    """
+    Get all banned users pages
+    :param driver:
+    :return:
+    """
+    pages = (
+        driver.find_element(By.CLASS_NAME, 'content-pagination')
+        .find_elements(By.TAG_NAME, 'a')
+    )
+    page_links = []
+    for item in pages:
+        page_links.append(
+            item.get_attribute('href')
+        )
+    return page_links
+
+
 def get_match_details(web_driver):
+    """
+    extract match details
+    :param web_driver:
+    :return:
+    """
     # get latest match
     try:
         latest_match_link = web_driver.find_element(By.CLASS_NAME, 'StatsBoxMatch__SeeMatch').get_attribute('href')
@@ -262,22 +306,28 @@ def get_match_details(web_driver):
 
 
 def login(driver):
+    """
+    login
+    :param driver:
+    :return:
+    """
     # launch login
-    driver.get(login_page_url)
+    driver.get(LOGIN_PAGE_URL)
 
-    driver.find_element(By.ID, "steamAccountName").send_keys(username)
-    driver.find_element(By.ID, "steamPassword").send_keys(password)
+    driver.find_element(By.ID, "steamAccountName").send_keys(USERNAME)
+    driver.find_element(By.ID, "steamPassword").send_keys(PASSWORD)
     login_btn = driver.find_element(By.ID, "imageLogin")
     virtual_click(driver, login_btn)
     time.sleep(2)
     return driver
 
 
-def scrap_data(driver):
-    time.sleep(5)
-    driver = login(driver)
-    driver.get(bannered_users_url)
-
+def scrap_data_by_page(driver):
+    """
+    scrap banned user data per page
+    :param driver:
+    :return:
+    """
     table = WebDriverWait(driver, 30).until(
         EC.presence_of_element_located((By.CLASS_NAME, 'ban-table'))
     )
@@ -301,7 +351,7 @@ def scrap_data(driver):
             urls.append(profile_link)
         result_data = []
         if urls:
-            for url in urls[:10]:
+            for url in urls:
                 driver.get(url)
 
                 time.sleep(5)
@@ -309,68 +359,74 @@ def scrap_data(driver):
                 results = get_match_details(driver)
                 if results:
                     result_data.append(results)
-        print('result data::', json.dumps(result_data, indent=4))
+        return result_data
+    return None
 
-def copy_data(result_data):
-    rclone_drive = 'gdrive'
 
-    for item in result_data:
+def scrap_data(driver, all_pages=False):
+    """
+    entry method
+    :param driver:
+    :param all_pages:
+    :return:
+    """
+    time.sleep(5)
+    driver = login(driver)
+    driver.get(BANNED_USERS_URL)
+    all_data = []
+    if all_pages:
+        pages = get_pages(driver)
+    else:
+        pages = None
+
+    data = scrap_data_by_page(driver)
+    if data:
+        all_data += data
+
+    if pages:
+        # get pages
+        if pages:
+            for page in pages:
+                driver.get(page)
+                data = scrap_data_by_page(driver)
+                all_data += data
+
+    if all_data:
+        copy_data(all_data)
+
+
+def copy_data(data):
+    """
+    copy data with RClone
+    :param data:
+    :return:
+    """
+    existing_files = []
+    for ban in ['TOS', 'VAC']:
+        for count in ['m', 's']:
+            files = rclone_util.get_files_from_remote(f'{RCLONE_REMOTE_FOLDER}/GamerClub-Cheaters/{ban}/{count}/')
+            if files:
+                existing_files += files
+
+    for item in data:
+
+        # get existing files
         file_url = item.get('demo_url')
         ban_type = item.get('ban_type')
         count_type = item.get('count_type')
         steam_id = item.get('steam_id_64')
 
-        file_extension = file_url.split('/').pop().split('.').pop()
-        dest_file_name = f"/ GamerClub-Cheaters/{ban_type}/{count_type}/{steam_id}.dem.{file_extension}"
+        # check if file exists:
+        file_exists = any(steam_id in item for item in existing_files)
+        if not file_exists:
+            file_extension = file_url.split('.').pop()
+            dest_file_name = f'/GamerClub-Cheaters/{ban_type}/{count_type}/{steam_id}.dem.{file_extension}'
+            rclone_util.copy_file_by_url(file_url, f'{RCLONE_REMOTE_FOLDER}{dest_file_name}')
 
-        util.copy_file_by_url(file_url, f"{rclone_drive}:{dest_file_name}")
+
+main_driver = initialize_selenium()
+# pass false to disable scrapping of all pages
+scrap_data(main_driver, True)
+main_driver.close()
 
 
-# main_driver = initialize_selenium()
-# scrap_data(main_driver)
-# main_driver.close()
-
-# copy files
-rclone_location = '/Users/anne/.config/rclone/rclone.conf'
-util = RcloneUtil(rclone_location)
-result_data = [
-    {
-        "ban_type": "TOS",
-        "steam_id_64": "76561198048279039",
-        "count_type": "m",
-        "demo_url": "https://prod-demo-parser-gc-demos.s3.amazonaws.com/2022-05-06__1440__1__15891474__de_vertigo__timealakzan__vs__timepuig.zip"
-    },
-    {
-        "ban_type": "TOS",
-        "steam_id_64": "76561198796352111",
-        "count_type": "m",
-        "demo_url": "https://prod-demo-parser-gc-demos.s3.amazonaws.com/2022-04-22__0240__1__15758966__de_mirage__timeperfumebond__vs__timefloking420.zip"
-    },
-    {
-        "ban_type": "TOS",
-        "steam_id_64": "76561199104932496",
-        "count_type": "m",
-        "demo_url": "https://prod-demo-parser-gc-demos.s3.amazonaws.com/2022-05-06__1416__1__15891349__de_mirage__timep3tt__vs__timetomasperosio.zip"
-    },
-    {
-        "ban_type": "TOS",
-        "steam_id_64": "76561199260618529",
-        "count_type": "m",
-        "demo_url": "https://prod-demo-parser-gc-demos.s3.amazonaws.com/2022-05-01__0243__1__15842162__de_inferno__timeclip1__vs__timexerekinha.zip"
-    },
-    {
-        "ban_type": "VAC",
-        "steam_id_64": "76561198411699300",
-        "count_type": "m",
-        "demo_url": "https://prod-demo-parser-gc-demos.s3.amazonaws.com/2021-10-09__1807__1__13732395__de_mirage__timetwitchtvheelfps__vs__timetulin.zip"
-    },
-    {
-        "ban_type": "VAC",
-        "steam_id_64": "76561198256677453",
-        "count_type": "m",
-        "demo_url": "https://prod-demo-parser-gc-demos.s3.amazonaws.com/2022-05-05__0144__1__15880848__de_overpass__timenripoll02__vs__timepresenchiprofessor.zip"
-    }
-]
-copy_data(result_data) # we can copy per item instead
-
-# print (util.get_files_from_remote('gdrive:'))
