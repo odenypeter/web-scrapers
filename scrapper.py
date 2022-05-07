@@ -19,9 +19,11 @@ from selenium.common.exceptions import (
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-
+from rclone_util import RcloneUtil
 
 # page urls
+
+
 site_url = "https://csgo.gamersclub.gg/"
 bannered_users_url = "https://csgo.gamersclub.gg/banidos"
 login_page_url = """
@@ -309,9 +311,66 @@ def scrap_data(driver):
                     result_data.append(results)
         print('result data::', json.dumps(result_data, indent=4))
 
+def copy_data(result_data):
+    rclone_drive = 'gdrive'
 
-main_driver = initialize_selenium()
-scrap_data(main_driver)
-main_driver.close()
-# rclone copyurl $url demo-1-1:/ GamerClub-Cheaters/$bantype/$counttype/$steamId.dem
-# https://gamersclub.com.br/lobby/partida/15859459?_ga=2.118975310.636070052.1651760976-985021742.1651760976
+    for item in result_data:
+        file_url = item.get('demo_url')
+        ban_type = item.get('ban_type')
+        count_type = item.get('count_type')
+        steam_id = item.get('steam_id_64')
+
+        file_extension = file_url.split('/').pop().split('.').pop()
+        dest_file_name = f"/ GamerClub-Cheaters/{ban_type}/{count_type}/{steam_id}.dem.{file_extension}"
+
+        util.copy_file_by_url(file_url, f"{rclone_drive}:{dest_file_name}")
+
+
+# main_driver = initialize_selenium()
+# scrap_data(main_driver)
+# main_driver.close()
+
+# copy files
+rclone_location = '/Users/anne/.config/rclone/rclone.conf'
+util = RcloneUtil(rclone_location)
+result_data = [
+    {
+        "ban_type": "TOS",
+        "steam_id_64": "76561198048279039",
+        "count_type": "m",
+        "demo_url": "https://prod-demo-parser-gc-demos.s3.amazonaws.com/2022-05-06__1440__1__15891474__de_vertigo__timealakzan__vs__timepuig.zip"
+    },
+    {
+        "ban_type": "TOS",
+        "steam_id_64": "76561198796352111",
+        "count_type": "m",
+        "demo_url": "https://prod-demo-parser-gc-demos.s3.amazonaws.com/2022-04-22__0240__1__15758966__de_mirage__timeperfumebond__vs__timefloking420.zip"
+    },
+    {
+        "ban_type": "TOS",
+        "steam_id_64": "76561199104932496",
+        "count_type": "m",
+        "demo_url": "https://prod-demo-parser-gc-demos.s3.amazonaws.com/2022-05-06__1416__1__15891349__de_mirage__timep3tt__vs__timetomasperosio.zip"
+    },
+    {
+        "ban_type": "TOS",
+        "steam_id_64": "76561199260618529",
+        "count_type": "m",
+        "demo_url": "https://prod-demo-parser-gc-demos.s3.amazonaws.com/2022-05-01__0243__1__15842162__de_inferno__timeclip1__vs__timexerekinha.zip"
+    },
+    {
+        "ban_type": "VAC",
+        "steam_id_64": "76561198411699300",
+        "count_type": "m",
+        "demo_url": "https://prod-demo-parser-gc-demos.s3.amazonaws.com/2021-10-09__1807__1__13732395__de_mirage__timetwitchtvheelfps__vs__timetulin.zip"
+    },
+    {
+        "ban_type": "VAC",
+        "steam_id_64": "76561198256677453",
+        "count_type": "m",
+        "demo_url": "https://prod-demo-parser-gc-demos.s3.amazonaws.com/2022-05-05__0144__1__15880848__de_overpass__timenripoll02__vs__timepresenchiprofessor.zip"
+    }
+]
+copy_data(result_data) # we can copy per item instead
+
+# print (util.get_files_from_remote('gdrive:'))

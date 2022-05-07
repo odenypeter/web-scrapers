@@ -13,9 +13,11 @@ class RcloneUtil:
         self.rclone_base = rclone.with_config(cfg)
 
     def copy_file_by_url(self, url, dest):
+        # '--retries 1' =>>> failing
+        flags = ['-v', '--drive-stop-on-upload-limit', '--fast-list', '--drive-chunk-size=256M', '--buffer-size=256M', '--no-clobber']
         return self.rclone_base.run_cmd(
             command='copyurl',
-            extra_args=[url, dest]
+            extra_args=[url, dest] + flags
         )
 
     def get_files_from_remote(self, source) -> list:
@@ -35,11 +37,11 @@ class RcloneUtil:
         return [item.get('Name') for item in files]
 
 
-util = RcloneUtil('/Users/odenypeter/.config/rclone/rclone.conf')
-print(util.get_files_from_remote('demo-1-1:'))
+# util = RcloneUtil('/Users/odenypeter/.config/rclone/rclone.conf')
+# print(util.get_files_from_remote('demo-1-1:'))
 
-import requests
-
-resp = requests.get('https://csgo.gamersclub.gg/lobby/demoDownload/15859459/')
-print(resp.text)
+# import requests
+#
+# resp = requests.get('https://csgo.gamersclub.gg/lobby/demoDownload/15859459/')
+# print(resp.text)
 # -v --drive-stop-on-upload-limit --fast-list --drive-chunk-size=256M --buffer-size=256M --no-clobber --retries 1
