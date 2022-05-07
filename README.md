@@ -14,7 +14,7 @@ Install the requirements.txt file
 pip3 install requirements.txt
 ```
 
-### Run Scrapper
+### Run program
 Run scrapper.py file
 ```
 python3 scrapper.py
